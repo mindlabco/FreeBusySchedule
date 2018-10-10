@@ -1,0 +1,132 @@
+
+<link type="text/css" rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script> 
+<script type="text/javascript" src="https://secure.aadcdn.microsoftonline-p.com/lib/1.0.10/js/adal.min.js"></script>
+
+
+  	
+
+
+<div class="container-fluide">
+<h1>Event Schedule</h1>
+
+<td>From Date: <input type="text" id="fromDatepicker"></td> 
+<td>To Date: <input type="text" id="toDatepicker"></td>
+<button type="button" id="btndate">Click</button>
+<table id="scheduleData" class="table table-striped"> 
+	<thead>
+		<tr>
+		   <th>Start</th>
+		   <th>End</th>
+		   <th>Subject</th>
+		   <th>Status</th>
+		   <th>Location</th>
+		</tr>
+	</thead>
+	<tbody></tbody>
+</table>
+</div>
+
+<script>
+
+$(function(){
+
+	$('#btndate').click(function(){
+		if(accessToken && accessToken != "" && ($( "#fromDatepicker" ).val() != "" && $( "#fromDatepicker" ).val() != "")){
+			getSchedular();
+		}		
+	});
+
+    $( "#fromDatepicker" ).datepicker();
+	$( "#toDatepicker" ).datepicker();
+
+    console.log('Loading'); 
+	
+	var accessToken = "";
+	
+	var configOptions = {
+        clientId: "XXXXXX-XXXX-XXXX-XXXX-XXXXXXXX",     //Required clientId to get accessToken
+        postLogoutRedirectUri: window.location.origin,
+		redirectURI: window.location.href, // Your page link
+	}
+
+    window.authContext = new AuthenticationContext(configOptions);
+
+    
+	if(authContext.isCallback(window.location.hash))
+	{
+      authContext.handleWindowCallback();       //Using this we can get user from getCachedUser() after login
+	}
+	
+		var user = authContext.getCachedUser();		
+		if(user == null){
+			authContext.login();   //Login if user not found in getCachedUser
+		}
+		else
+		{
+			 getToken();   
+		}
+	
+    function getToken(){    	//get accessToken 	
+			authContext.acquireToken("https://graph.microsoft.com",function(error, token){
+			console.log("Error =" +error);
+			console.log("Token =" +token);
+			accessToken  = token;
+			if(accessToken && accessToken != "")
+			{
+			   //getSchedular();			   
+			}
+        })
+    }	
+
+ function getSchedular(){		// get data based on passed url
+		var schedular = {        
+			"Schedules": [_spPageContextInfo.userEmail],
+			"StartTime": {
+				"dateTime": new Date($( "#fromDatepicker" ).val()).format('yyyy/MM/ddTh:mm:ss'),
+				"timeZone": "India Standard Time"
+			},
+			"EndTime": {
+				"dateTime": new Date($( "#toDatepicker" ).val()).format('yyyy/MM/ddTh:mm:ss'),
+				"timeZone": "India Standard Time"
+			},
+			"availabilityViewInterval": "15"
+		}
+
+		$.ajax({
+			url: "https://graph.microsoft.com/beta/me/calendar/getschedule",			
+			type: 'POST',			
+			headers: {
+				'Content-Type': 'application/json',
+				'Prefer': 'outlook.timezone="India Standard Time"',
+		        "Authorization": "Bearer " + accessToken
+			},
+			data:JSON.stringify(schedular),
+			async:false,
+			success: function(data) {
+			$('#scheduleData tbody').empty();
+				allData = data.value;
+				$.each(allData,function(e,item){
+						$.each(item.scheduleItems,function(i,itm){
+							$('#scheduleData tbody').append('<tr><td>'+new Date(itm.start.dateTime).format('dd/MM/yyyy, h:mm:ss')+'</td>'+
+												 '<td>'+new Date(itm.end.dateTime).format('dd/MM/yyyy, h:mm:ss')+'</td>'+
+												 '<td>'+(itm.subject?itm.subject:"")+'</td>'+
+												 '<td>'+(itm.status?itm.status:"")+'</td>'+
+												 '<td>'+(itm.location?itm.location:"")+'</td></tr>');
+						})						
+				})				    
+			},
+			error: function(error) 
+			{ 
+				alert("Error" + error);
+			}
+		});//ajax
+    }//get user
+})
+
+</script>
